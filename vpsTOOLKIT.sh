@@ -773,8 +773,6 @@ system_menu() {
 # --- APPLICATIONS --- 
 # ==========================
 
-#!/bin/bash
-
 APP_DIR="./modules"
 GITHUB_REPO="https://github.com/yourusername/yourrepo" # Podmień na swoje repo z addonami
 
@@ -786,35 +784,41 @@ is_installed() {
 # Funkcja pobierająca wszystkie addony z GitHub
 fetch_addons() {
     TMP_DIR=$(mktemp -d)
-    
-    # Get the latest release tag from GitHub API
-    LATEST_JSON=$(curl -s https://api.github.com/repos/Vahistar/BiteHost-vpsTOOLKIT/releases/latest)
-    LATEST_TAG=$(echo "$LATEST_JSON" | grep '"tag_name":' | cut -d '"' -f 4)
 
-    if [ -z "$LATEST_TAG" ]; then
-        dialog --msgbox "Failed to fetch the latest release tag from GitHub." 7 50
+    # Stały link do ZIP głównej gałęzi main
+    ADDONS_URL="https://github.com/Vahistar/BiteHost-vpsTOOLKIT/archive/refs/heads/main.zip"
+
+    # Pobierz ZIP
+    curl -sL "$ADDONS_URL" -o "$TMP_DIR/addons.zip"
+
+    if [ ! -s "$TMP_DIR/addons.zip" ]; then
+        dialog --msgbox "Failed to download addons archive." 7 50
         rm -rf "$TMP_DIR"
         return 1
     fi
 
-    # Construct the download URL for the latest release ZIP
-    ADDONS_URL="https://github.com/Vahistar/BiteHost-vpsTOOLKIT/archive/refs/tags/${LATEST_TAG}.zip"
+    # Rozpakuj
+    if ! unzip -o "$TMP_DIR/addons.zip" -d "$TMP_DIR/" >/dev/null 2>&1; then
+        dialog --msgbox "Failed to unzip addons archive. Is 'unzip' installed?" 7 60
+        rm -rf "$TMP_DIR"
+        return 1
+    fi
 
-    # Download and extract the ZIP file
-    curl -sL "$ADDONS_URL" -o "$TMP_DIR/addons.zip"
-    mkdir -p "$APP_DIR"
-    unzip -o "$TMP_DIR/addons.zip" -d "$TMP_DIR/" >/dev/null 2>&1
+    # Skopiuj moduły do APP_DIR
+    if [ -d "$TMP_DIR"/BiteHost-vpsTOOLKIT-main/modules ]; then
+        mkdir -p "$APP_DIR"
+        cp -rf "$TMP_DIR"/BiteHost-vpsTOOLKIT-main/modules/* "$APP_DIR"/
+    else
+        dialog --msgbox "No modules directory found in release archive." 7 60
+    fi
 
-    # Copy all .bitehost files to the modules directory
-    find "$TMP_DIR" -type f -name "*.bitehost" -exec cp -f {} "$APP_DIR/" \;
-
-    # Fix CRLF line endings and make scripts executable
+    # Napraw CRLF i prawa wykonywalności
     sed -i 's/\r//' "$APP_DIR"/*.bitehost 2>/dev/null
     chmod +x "$APP_DIR"/*.bitehost 2>/dev/null
 
     rm -rf "$TMP_DIR"
 
-    dialog --msgbox "Addons from the latest release (${LATEST_TAG}) have been downloaded and prepared." 7 60
+    dialog --msgbox "Addons from the main branch have been downloaded and prepared." 7 60
 }
 
 # Załaduj wszystkie pliki z katalogu apps
