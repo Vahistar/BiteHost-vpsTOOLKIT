@@ -778,47 +778,28 @@ GITHUB_REPO="https://github.com/yourusername/yourrepo" # Podmień na swoje repo 
 
 # Funkcja sprawdzająca czy pakiet jest zainstalowany
 is_installed() {
-    dpkg -l | awk '{print $2}' | grep -q "^$1"
+    dpkg -l "$1" 2>/dev/null | awk '/^ii/ {print $2}' | grep -q "^$1"
 }
 
 # Funkcja pobierająca wszystkie addony z GitHub
 fetch_addons() {
     TMP_DIR=$(mktemp -d)
+    ZIP_URL="https://github.com/Vahistar/BiteHost-vpsTOOLKIT/archive/refs/heads/main.zip"
 
-    # Stały link do ZIP głównej gałęzi main
-    ADDONS_URL="https://github.com/Vahistar/BiteHost-vpsTOOLKIT/archive/refs/heads/main.zip"
+    curl -sL "$ZIP_URL" -o "$TMP_DIR/addons.zip"
+    mkdir -p "$APP_DIR"
+    unzip -o "$TMP_DIR/addons.zip" -d "$TMP_DIR/" >/dev/null 2>&1
 
-    # Pobierz ZIP
-    curl -sL "$ADDONS_URL" -o "$TMP_DIR/addons.zip"
-
-    if [ ! -s "$TMP_DIR/addons.zip" ]; then
-        dialog --msgbox "Failed to download addons archive." 7 50
-        rm -rf "$TMP_DIR"
-        return 1
-    fi
-
-    # Rozpakuj
-    if ! unzip -o "$TMP_DIR/addons.zip" -d "$TMP_DIR/" >/dev/null 2>&1; then
-        dialog --msgbox "Failed to unzip addons archive. Is 'unzip' installed?" 7 60
-        rm -rf "$TMP_DIR"
-        return 1
-    fi
-
-    # Skopiuj moduły do APP_DIR
-    if [ -d "$TMP_DIR"/BiteHost-vpsTOOLKIT-main/modules ]; then
-        mkdir -p "$APP_DIR"
-        cp -rf "$TMP_DIR"/BiteHost-vpsTOOLKIT-main/modules/* "$APP_DIR"/
+    if [ -d "$TMP_DIR"/BiteHost-vpsTOOLKIT-*/modules ]; then
+        cp -rf "$TMP_DIR"/BiteHost-vpsTOOLKIT-*/modules/* "$APP_DIR"/
+        sed -i 's/\r//' "$APP_DIR"/*.bitehost 2>/dev/null
+        chmod +x "$APP_DIR"/*.bitehost 2>/dev/null
+        dialog --msgbox "Addons have been downloaded." 7 50
     else
-        dialog --msgbox "No modules directory found in release archive." 7 60
+        dialog --msgbox "No modules directory found in archive." 7 50
     fi
-
-    # Napraw CRLF i prawa wykonywalności
-    sed -i 's/\r//' "$APP_DIR"/*.bitehost 2>/dev/null
-    chmod +x "$APP_DIR"/*.bitehost 2>/dev/null
 
     rm -rf "$TMP_DIR"
-
-    dialog --msgbox "Addons from the main branch have been downloaded and prepared." 7 60
 }
 
 # Załaduj wszystkie pliki z katalogu apps
@@ -832,13 +813,18 @@ app_menu() {
         MENU=()
         for f in "$APP_DIR"/*.bitehost; do
             [ -f "$f" ] || continue
-            source "$f"  # deklaracja funkcji i APP_NAME
-            STATUS=$(dpkg -l | awk '{print $2}' | grep -q "^$APP_NAME" && echo "INSTALLED (Manage)" || echo "NOT INSTALLED")
+            source "$f"  # deklaracja funkcji i zmiennych
+
+            if is_installed "$APP_NAME"; then
+                STATUS="INSTALLED (Manage)"
+            else
+                STATUS="NOT INSTALLED"
+            fi
             MENU+=("$APP_NAME" "$STATUS")
         done
         MENU+=("Fetch_Addons" "Download all addons from GitHub")
         MENU+=("0" "Back")
-        
+
         APP=$(dialog --clear --stdout --menu "Select application:" 20 70 15 "${MENU[@]}")
         [ -z "$APP" ] && continue
         [ "$APP" == "0" ] && break
@@ -848,21 +834,27 @@ app_menu() {
             continue
         fi
 
-        # Wywołanie funkcji dopiero po wyborze
+        # Wywołanie funkcji tylko dla wybranej aplikacji
         for f in "$APP_DIR"/*.bitehost; do
             [ -f "$f" ] || continue
             source "$f"
             if [ "$APP" == "$APP_NAME" ]; then
-                manage_app  # tutaj wywołujemy funkcję zarządzania
+                if ! is_installed "$APP_NAME"; then
+                    DEBIAN_FRONTEND=noninteractive apt-get install -y $APP_NAME > /dev/null 2>&1
+                    dialog --msgbox "$APP_NAME został zainstalowany automatycznie." 7 50
+                fi
+                manage_app
                 break
             fi
         done
+
     done
 }
 
 # Napraw CRLF i ustaw prawa wykonywalności dla wszystkich addonów
 sed -i 's/\r//' "$APP_DIR"/*.bitehost
 chmod +x "$APP_DIR"/*.bitehost
+
 
 # Uruchom menu
 # app_menu
