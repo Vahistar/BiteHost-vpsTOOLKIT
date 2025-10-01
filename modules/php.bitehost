@@ -2,19 +2,41 @@ APP_NAME="php"
 PACKAGES=("php" "php-cli" "php-fpm")
 
 manage_app() {
-    if ! dpkg -l | awk '{print $2}' | grep -q "^php"; then
-        DEBIAN_FRONTEND=noninteractive apt-get install -y php php-cli php-fpm > /dev/null 2>&1
-        dialog --msgbox "PHP został zainstalowany." 7 50
+    if dpkg -l | awk '{print $2}' | grep -q "^php"; then
+        INSTALLED_VER=$(php -v 2>/dev/null | head -n1 | awk '{print $2}')
+        LATEST_VER=$(apt-cache policy php | awk '/Candidate:/ {print $2}')
+        SERVICE_STATUS=$(systemctl is-active php7.4-fpm 2>/dev/null || echo "unknown") # dopasuj wersję PHP-FPM jeśli trzeba
+
+        ACTION=$(dialog --clear --stdout --title "$APP_NAME Management" \
+            --menu "Installed: ${INSTALLED_VER:-unknown}\nLatest: ${LATEST_VER:-unknown}\nFPM Status: $SERVICE_STATUS" 20 70 12 \
+            1 "Check PHP modules" \
+            2 "Restart PHP-FPM" \
+            3 "Start PHP-FPM" \
+            4 "Stop PHP-FPM" \
+            5 "Update PHP" \
+            6 "Check for Updates" \
+            7 "Install extra modules" \
+            8 "Uninstall" \
+            0 "Back")
+
+        case $ACTION in
+            1) MODULES=$(php -m | tr '\n' ', ') ; dialog --msgbox "PHP modules: $MODULES" 10 60 ;;
+            2) systemctl restart php7.4-fpm 2>/dev/null && dialog --msgbox "PHP-FPM restarted." 7 40 ;;
+            3) systemctl start php7.4-fpm 2>/dev/null && dialog --msgbox "PHP-FPM started." 7 40 ;;
+            4) systemctl stop php7.4-fpm 2>/dev/null && dialog --msgbox "PHP-FPM stopped." 7 40 ;;
+            5) DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade php php-cli php-fpm > /dev/null 2>&1 \
+               && dialog --msgbox "$APP_NAME updated." 7 40 ;;
+            6) apt-get update -qq > /dev/null 2>&1 \
+               && NEW_VER=$(apt-cache policy php | awk '/Candidate:/ {print $2}') \
+               && dialog --msgbox "Latest version: ${NEW_VER:-unknown}" 7 40 ;;
+            7) DEBIAN_FRONTEND=noninteractive apt-get install -y php-mbstring php-curl php-xml php-gd > /dev/null 2>&1 \
+               && dialog --msgbox "Extra PHP modules installed." 7 50 ;;
+            8) DEBIAN_FRONTEND=noninteractive apt-get purge -y php php-cli php-fpm > /dev/null 2>&1 \
+               && apt-get autoremove -y > /dev/null 2>&1 \
+               && dialog --msgbox "$APP_NAME uninstalled." 7 40 ;;
+        esac
+    else
+        DEBIAN_FRONTEND=noninteractive apt-get install -y php php-cli php-fpm > /dev/null 2>&1 \
+        && dialog --msgbox "$APP_NAME installed." 7 40
     fi
-
-    INSTALLED_VER=$(php -v 2>/dev/null | head -n1 | awk '{print $2}')
-    ACTION=$(dialog --clear --stdout --title "PHP Management" \
-        --menu "Installed version: ${INSTALLED_VER:-unknown}" 20 70 10 \
-        1 "Check PHP modules" 2 "Update PHP" 0 "Back")
-
-    case $ACTION in
-        1) MODULES=$(php -m | tr '\n' ', ') ; dialog --msgbox "PHP modules: $MODULES" 10 60 ;;
-        2) DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade php php-cli php-fpm > /dev/null 2>&1 \
-           && dialog --msgbox "PHP updated." 7 40 ;;
-    esac
 }
