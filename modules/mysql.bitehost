@@ -1,0 +1,25 @@
+APP_NAME="mysql-server"
+PACKAGES=("mysql-server")
+
+manage_app() {
+    if ! dpkg -l | awk '{print $2}' | grep -q "^mysql-server"; then
+        DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-server > /dev/null 2>&1
+        dialog --msgbox "MySQL został zainstalowany." 7 50
+    fi
+
+    SERVICE_STATUS=$(systemctl is-active mysql 2>/dev/null || echo "unknown")
+    ACTION=$(dialog --clear --stdout --title "MySQL Management" \
+        --menu "Status: $SERVICE_STATUS" 20 70 10 \
+        1 "Start" 2 "Stop" 3 "Restart" 4 "Update" 5 "Uninstall" 0 "Back")
+
+    case $ACTION in
+        1) systemctl start mysql > /dev/null 2>&1 && dialog --msgbox "MySQL started." 7 40 ;;
+        2) systemctl stop mysql > /dev/null 2>&1 && dialog --msgbox "MySQL stopped." 7 40 ;;
+        3) systemctl restart mysql > /dev/null 2>&1 && dialog --msgbox "MySQL restarted." 7 40 ;;
+        4) DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade mysql-server > /dev/null 2>&1 \
+           && dialog --msgbox "MySQL updated." 7 40 ;;
+        5) DEBIAN_FRONTEND=noninteractive apt-get purge -y mysql-server > /dev/null 2>&1 \
+           && apt-get autoremove -y > /dev/null 2>&1 \
+           && dialog --msgbox "MySQL uninstalled." 7 40 ;;
+    esac
+}
