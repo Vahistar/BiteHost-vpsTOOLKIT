@@ -14,6 +14,31 @@ if ! command -v dialog &>/dev/null; then
     apt-get install -y -qq dialog >/dev/null 2>&1
 fi
 
+# Ustaw logo jako zmienną
+if [[ -f /tmp/logo.txt ]]; then
+  rm -r /tmp/logo.txt
+else
+  echo ""
+fi
+
+cat <<'EOF' > /tmp/logo.txt
+ _______   __    __                __    __                        __
+|       \ |  \  |  \              |  \  |  \                      |  \
+| $$$$$$$\ \$$ _| $$_     ______  | $$  | $$  ______    _______  _| $$_
+| $$__/ $$|  \|   $$ \   /      \ | $$__| $$ /      \  /       \|   $$ \
+| $$    $$| $$ \$$$$$$  |  $$$$$$\| $$    $$|  $$$$$$\|  $$$$$$$ \$$$$$$
+| $$$$$$$\| $$  | $$ __ | $$    $$| $$$$$$$$| $$  | $$ \$$    \   | $$ __
+| $$__/ $$| $$  | $$|  \| $$$$$$$$| $$  | $$| $$__/ $$ _\$$$$$$\  | $$|  \
+| $$    $$| $$   \$$  $$ \$$     \| $$  | $$ \$$    $$|       $$   \$$  $$
+ \$$$$$$$  \$$    \$$$$   \$$$$$$$ \$$   \$$  \$$$$$$  \$$$$$$$     \$$$$
+    
+🚀 CLI - vpsTOOLKIT [v1.0]
+by Vahistar
+EOF
+
+# Wyświetl logo w oknie dialogu
+dialog --title "CLI - UFW Manager" --textbox /tmp/logo.txt 20 80
+
 check_installed() { dpkg -l | grep -qw "$1"; }
 
 # ==========================
