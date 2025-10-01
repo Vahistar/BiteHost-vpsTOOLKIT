@@ -1,0 +1,20 @@
+APP_NAME="php"
+PACKAGES=("php" "php-cli" "php-fpm")
+
+manage_app() {
+    if ! dpkg -l | awk '{print $2}' | grep -q "^php"; then
+        DEBIAN_FRONTEND=noninteractive apt-get install -y php php-cli php-fpm > /dev/null 2>&1
+        dialog --msgbox "PHP został zainstalowany." 7 50
+    fi
+
+    INSTALLED_VER=$(php -v 2>/dev/null | head -n1 | awk '{print $2}')
+    ACTION=$(dialog --clear --stdout --title "PHP Management" \
+        --menu "Installed version: ${INSTALLED_VER:-unknown}" 20 70 10 \
+        1 "Check PHP modules" 2 "Update PHP" 0 "Back")
+
+    case $ACTION in
+        1) MODULES=$(php -m | tr '\n' ', ') ; dialog --msgbox "PHP modules: $MODULES" 10 60 ;;
+        2) DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade php php-cli php-fpm > /dev/null 2>&1 \
+           && dialog --msgbox "PHP updated." 7 40 ;;
+    esac
+}
