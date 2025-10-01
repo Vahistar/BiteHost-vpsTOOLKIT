@@ -3,24 +3,29 @@ PACKAGES=("nginx")
 
 manage_app() {
     if dpkg -l | awk '{print $2}' | grep -q "^$APP_NAME"; then
-        SERVICE_STATUS=$(systemctl is-active $APP_NAME 2>/dev/null)
-        INSTALLED_VER=$(dpkg -s $APP_NAME | awk '/Version:/ {print $2}')
-        LATEST_VER=$(apt-cache policy $APP_NAME | awk '/Candidate:/ {print $2}')
+        SERVICE_STATUS=$(systemctl is-active $APP_NAME 2>/dev/null || echo "unknown")
+        INSTALLED_VER=$(dpkg -s $APP_NAME 2>/dev/null | awk '/Version:/ {print $2}')
+        LATEST_VER=$(apt-cache policy $APP_NAME 2>/dev/null | awk '/Candidate:/ {print $2}')
 
         ACTION=$(dialog --clear --stdout --title "$APP_NAME Management" \
-            --menu "Status: $SERVICE_STATUS\n\nInstalled: $INSTALLED_VER\nLatest: $LATEST_VER" 20 70 10 \
+            --menu "Status: $SERVICE_STATUS\n\nInstalled: ${INSTALLED_VER:-unknown}\nLatest: ${LATEST_VER:-unknown}" 20 70 10 \
             1 "Start" 2 "Stop" 3 "Restart" 4 "Update" 5 "Check for Updates" 6 "Uninstall" 0 "Back")
 
         case $ACTION in
-            1) systemctl start $APP_NAME > /dev/null 2>&1; dialog --msgbox "$APP_NAME started." 7 40 ;;
-            2) systemctl stop $APP_NAME > /dev/null 2>&1; dialog --msgbox "$APP_NAME stopped." 7 40 ;;
-            3) systemctl restart $APP_NAME > /dev/null 2>&1; dialog --msgbox "$APP_NAME restarted." 7 40 ;;
-            4) DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade $APP_NAME > /dev/null 2>&1; dialog --msgbox "$APP_NAME updated." 7 40 ;;
-            5) apt-get update -qq > /dev/null 2>&1; NEW_VER=$(apt-cache policy $APP_NAME | awk '/Candidate:/ {print $2}'); dialog --msgbox "Latest version: $NEW_VER" 7 40 ;;
-            6) DEBIAN_FRONTEND=noninteractive apt-get purge -y $APP_NAME > /dev/null 2>&1; apt-get autoremove -y > /dev/null 2>&1; dialog --msgbox "$APP_NAME uninstalled." 7 40 ;;
+            1) systemctl start $APP_NAME 2>/dev/null && dialog --msgbox "$APP_NAME started." 7 40 ;;
+            2) systemctl stop $APP_NAME 2>/dev/null && dialog --msgbox "$APP_NAME stopped." 7 40 ;;
+            3) systemctl restart $APP_NAME 2>/dev/null && dialog --msgbox "$APP_NAME restarted." 7 40 ;;
+            4) DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade $APP_NAME > /dev/null 2>&1 \
+               && dialog --msgbox "$APP_NAME updated." 7 40 ;;
+            5) apt-get update -qq > /dev/null 2>&1 \
+               && NEW_VER=$(apt-cache policy $APP_NAME | awk '/Candidate:/ {print $2}') \
+               && dialog --msgbox "Latest version: ${NEW_VER:-unknown}" 7 40 ;;
+            6) DEBIAN_FRONTEND=noninteractive apt-get purge -y $APP_NAME > /dev/null 2>&1 \
+               && apt-get autoremove -y > /dev/null 2>&1 \
+               && dialog --msgbox "$APP_NAME uninstalled." 7 40 ;;
         esac
     else
-        DEBIAN_FRONTEND=noninteractive apt-get install -y $APP_NAME > /dev/null 2>&1
-        dialog --msgbox "$APP_NAME installed." 7 40
+        DEBIAN_FRONTEND=noninteractive apt-get install -y $APP_NAME > /dev/null 2>&1 \
+        && dialog --msgbox "$APP_NAME installed." 7 40
     fi
 }
