@@ -786,19 +786,35 @@ is_installed() {
 # Funkcja pobierająca wszystkie addony z GitHub
 fetch_addons() {
     TMP_DIR=$(mktemp -d)
-    curl -sL "$GITHUB_REPO/archive/refs/heads/main.zip" -o "$TMP_DIR/addons.zip"
+    
+    # Get the latest release tag from GitHub API
+    LATEST_JSON=$(curl -s https://api.github.com/repos/Vahistar/BiteHost-vpsTOOLKIT/releases/latest)
+    LATEST_TAG=$(echo "$LATEST_JSON" | grep '"tag_name":' | cut -d '"' -f 4)
+
+    if [ -z "$LATEST_TAG" ]; then
+        dialog --msgbox "Failed to fetch the latest release tag from GitHub." 7 50
+        rm -rf "$TMP_DIR"
+        return 1
+    fi
+
+    # Construct the download URL for the latest release ZIP
+    ADDONS_URL="https://github.com/Vahistar/BiteHost-vpsTOOLKIT/archive/refs/tags/${LATEST_TAG}.zip"
+
+    # Download and extract the ZIP file
+    curl -sL "$ADDONS_URL" -o "$TMP_DIR/addons.zip"
+    mkdir -p "$APP_DIR"
     unzip -o "$TMP_DIR/addons.zip" -d "$TMP_DIR/" >/dev/null 2>&1
 
-    # Skopiuj i nadpisz wszystkie .bitehost do APP_DIR
-    cp -f "$TMP_DIR"/*/*.bitehost "$APP_DIR/" 2>/dev/null
+    # Copy all .bitehost files to the modules directory
+    find "$TMP_DIR" -type f -name "*.bitehost" -exec cp -f {} "$APP_DIR/" \;
 
-    # Napraw CRLF i nadaj prawa wykonywalności
-    sed -i 's/\r//' "$APP_DIR"/*.bitehost
-    chmod +x "$APP_DIR"/*.bitehost
+    # Fix CRLF line endings and make scripts executable
+    sed -i 's/\r//' "$APP_DIR"/*.bitehost 2>/dev/null
+    chmod +x "$APP_DIR"/*.bitehost 2>/dev/null
 
     rm -rf "$TMP_DIR"
 
-    dialog --msgbox "All addons downloaded and prepared." 7 50
+    dialog --msgbox "Addons from the latest release (${LATEST_TAG}) have been downloaded and prepared." 7 60
 }
 
 # Załaduj wszystkie pliki z katalogu apps
