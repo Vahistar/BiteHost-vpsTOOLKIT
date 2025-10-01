@@ -37,7 +37,7 @@ by Vahistar
 EOF
 
 # Wyświetl logo w oknie dialogu
-dialog --title "CLI - UFW Manager" --textbox /tmp/logo.txt 20 80
+dialog --title "CLI - vpsTOOLKIT" --textbox /tmp/logo.txt 20 80
 
 check_installed() { dpkg -l | grep -qw "$1"; }
 
