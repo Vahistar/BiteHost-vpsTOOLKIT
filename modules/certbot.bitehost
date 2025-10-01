@@ -1,0 +1,26 @@
+APP_NAME="certbot"
+PACKAGES=("certbot")
+
+manage_app() {
+    if dpkg -l | awk '{print $2}' | grep -q "^$APP_NAME"; then
+        SERVICE_STATUS=$(systemctl is-active $APP_NAME 2>/dev/null || echo "inactive")
+        INSTALLED_VER=$(dpkg -s $APP_NAME | awk '/Version:/ {print $2}')
+        LATEST_VER=$(apt-cache policy $APP_NAME | awk '/Candidate:/ {print $2}')
+
+        ACTION=$(dialog --clear --stdout --title "$APP_NAME Management" \
+            --menu "Status: $SERVICE_STATUS\n\nInstalled: $INSTALLED_VER\nLatest: $LATEST_VER" 20 70 10 \
+            1 "Install/Update" 2 "Check for Updates" 3 "Uninstall" 0 "Back")
+
+        case $ACTION in
+            1) DEBIAN_FRONTEND=noninteractive apt-get install -y $APP_NAME > /dev/null 2>&1; 
+               dialog --msgbox "$APP_NAME installed/updated." 7 40 ;;
+            2) apt-get update -qq > /dev/null 2>&1; NEW_VER=$(apt-cache policy $APP_NAME | awk '/Candidate:/ {print $2}'); 
+               dialog --msgbox "Latest version: $NEW_VER" 7 40 ;;
+            3) DEBIAN_FRONTEND=noninteractive apt-get purge -y $APP_NAME > /dev/null 2>&1; apt-get autoremove -y > /dev/null 2>&1; 
+               dialog --msgbox "$APP_NAME uninstalled." 7 40 ;;
+        esac
+    else
+        DEBIAN_FRONTEND=noninteractive apt-get install -y $APP_NAME > /dev/null 2>&1
+        dialog --msgbox "$APP_NAME installed." 7 40
+    fi
+}
