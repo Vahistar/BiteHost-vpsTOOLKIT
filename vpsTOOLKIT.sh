@@ -832,7 +832,7 @@ app_menu() {
         MENU=()
         for f in "$APP_DIR"/*.bitehost; do
             [ -f "$f" ] || continue
-            source "$f"  # tylko deklaracja funkcji i zmiennych
+            source "$f"  # deklaracja funkcji i APP_NAME
             STATUS=$(dpkg -l | awk '{print $2}' | grep -q "^$APP_NAME" && echo "INSTALLED (Manage)" || echo "NOT INSTALLED")
             MENU+=("$APP_NAME" "$STATUS")
         done
@@ -853,7 +853,7 @@ app_menu() {
             [ -f "$f" ] || continue
             source "$f"
             if [ "$APP" == "$APP_NAME" ]; then
-                manage_app
+                manage_app  # tutaj wywołujemy funkcję zarządzania
                 break
             fi
         done
